@@ -1,0 +1,12 @@
+# Every number a demo run produces traces back to this file.
+seed: 61803
+
+n_customers: 2000
+n_products: 150
+n_orders: 20000
+
+date_start: "2025-01-01"
+date_end: "2025-09-30"
+
+regions: ["EMEA", "APAC", "AMER"]
+categories: ["electronics", "home", "apparel", "grocery", "beauty"]

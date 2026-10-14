@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The default token is read/write on every scope. Nothing here writes to the
+# repo, so say so explicitly.
+permissions:
+  contents: read
+
+# A second push to a branch makes the first run's result irrelevant. Cancel it
+# instead of paying for both.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      # --frozen installs exactly what uv.lock pins and fails if the lock has
+      # drifted from pyproject.toml.
+      - name: Install the project
+        run: |
+          uv venv --python 3.11
+          uv sync --frozen --extra dev
+
+      - name: Lint
+        run: |
+          .venv/bin/ruff check src tests
+          .venv/bin/ruff format --check src tests
+
+      - name: Types
+        run: .venv/bin/mypy src
+
+      - name: Build the warehouse and check the registry against it
+        run: |
+          .venv/bin/python -m semantic_layer.gen
+          .venv/bin/python -m semantic_layer.registry --check
+
+      - name: Tests
+        run: .venv/bin/pytest -q

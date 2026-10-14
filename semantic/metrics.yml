@@ -1,0 +1,98 @@
+# The business glossary. Every metric a question can resolve to is defined
+# exactly once here - never inline in a query - and lists the vocabulary
+# people actually use for it, so retrieval matches what someone types rather
+# than what the warehouse calls it.
+#
+# `table` and `expr` are checked against warehouse.duckdb at import time and
+# in CI (see registry.py --check and the pre-commit hook): a metric that
+# references a column the warehouse doesn't have fails the build, not a
+# query at 2am.
+
+metrics:
+  revenue:
+    synonyms: [sales, gross sales, gross revenue, turnover, top line]
+    table: order_lines
+    expr: "SUM(gross_revenue)"
+    description: Gross revenue before cost, at the order-line grain.
+    format: currency
+
+  cost:
+    synonyms: [cogs, cost of goods, cost of goods sold]
+    table: order_lines
+    expr: "SUM(gross_cost)"
+    description: Gross cost of goods sold, at the order-line grain.
+    format: currency
+
+  margin:
+    synonyms: [gross margin, gross profit, profit]
+    table: order_lines
+    expr: "SUM(gross_revenue) - SUM(gross_cost)"
+    description: Revenue minus cost. Not margin rate - see margin_rate.
+    format: currency
+
+  margin_rate:
+    synonyms: [margin percentage, margin %, gross margin rate]
+    table: order_lines
+    expr: "(SUM(gross_revenue) - SUM(gross_cost)) / NULLIF(SUM(gross_revenue), 0)"
+    description: Margin as a fraction of revenue. Division is guarded; an
+      empty slice returns null, not a divide-by-zero error.
+    format: percent
+
+  order_count:
+    synonyms: [orders, number of orders, order volume]
+    table: orders
+    expr: "COUNT(DISTINCT order_id)"
+    description: Distinct orders. Counting order_lines rows would
+      double-count a multi-item order.
+    format: integer
+
+  aov:
+    synonyms: [average order value, basket size, average basket]
+    table: order_lines
+    expr: "SUM(gross_revenue) / NULLIF(COUNT(DISTINCT order_lines.order_id), 0)"
+    description: Revenue per distinct order. order_id is qualified because
+      a filter or group-by that joins order_lines to orders (region,
+      category, the time window) makes the bare column ambiguous.
+    format: currency
+
+  units_sold:
+    synonyms: [units, quantity sold, volume]
+    table: order_lines
+    expr: "SUM(quantity)"
+    description: Total units across all order lines.
+    format: integer
+
+  customer_count:
+    synonyms: [customers, number of customers, unique customers, buyers]
+    table: orders
+    expr: "COUNT(DISTINCT customer_id)"
+    description: Distinct customers who placed at least one order in scope.
+    format: integer
+
+dimensions:
+  region:
+    synonyms: [region, market, geo]
+    table: orders
+    column: region
+    join: null
+
+  category:
+    synonyms: [category, product category, department]
+    table: products
+    column: category
+    # order_lines -> products on product_id; see compile.py JOIN_PATHS.
+    join: products
+
+  order_date:
+    synonyms: [date, day, order date]
+    table: orders
+    column: order_date
+    join: null
+    temporal: true
+
+# Columns nothing in this file may ever resolve to - not because the data is
+# sensitive here, but to demonstrate the access-control shape the production
+# version enforces: a question that needs a blocked column is refused, not
+# silently dropped.
+blocked_columns:
+  - customers.signup_date

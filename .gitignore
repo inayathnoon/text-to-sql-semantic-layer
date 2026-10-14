@@ -1,0 +1,30 @@
+# Anchored to the repo root: an unanchored directory rule matches at every
+# depth and will happily exclude a source package of the same name.
+/data/
+/out/
+/warehouse/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.duckdb
+*.duckdb.wal
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Test and build output
+.coverage
+coverage.xml
+htmlcov/
+/dist/
+/build/
+*.egg-info/
+
+# Editors and notebooks
+.idea/
+.vscode/
+.ipynb_checkpoints/
